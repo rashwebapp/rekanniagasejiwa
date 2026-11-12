@@ -920,12 +920,27 @@
     function applyInitData(data) {
       STATE.zones = (data.zones && data.zones.length) ? data.zones : DEFAULT_ZONES;
       STATE.premises = (data.premises && data.premises.length) ? data.premises : DEFAULT_PREMISES;
-      STATE.announcements = data.announcements || [];
+      const rawAnn = data.announcements || [];
+      STATE.announcements = rawAnn.filter((a) => a.kategori !== 'VIDEO');
+      const fallbackVideos = rawAnn
+        .filter((a) => a.kategori === 'VIDEO')
+        .map((a) => {
+          const parts = String(a.isi || '').split('|');
+          const rawUrl = parts[1] || parts[0] || '';
+          const embedUrl = parseVideoEmbedUrlClient(rawUrl);
+          return {
+            id_video: a.id_pengumuman,
+            judul: a.judul,
+            url_asli: rawUrl,
+            embed_url: embedUrl,
+            sumber: rawUrl.includes('drive.google.com') ? 'Google Drive' : 'YouTube'
+          };
+        });
       STATE.kuliahSessions = data.kuliah_sessions || [];
       if (Array.isArray(data.staff_directory)) {
         STATE.staffDirectory = data.staff_directory;
       }
-      STATE.videos = data.videos || [];
+      STATE.videos = (data.videos && data.videos.length) ? data.videos : fallbackVideos;
       STATE.enablePayroll = !!data.enable_payroll;
       applyPayrollVisibility();
       renderHomeVideoSlide();
@@ -1704,6 +1719,16 @@
       } finally { showLoader(false); }
     }
 
+    function parseVideoEmbedUrlClient(rawUrl) {
+      const url = String(rawUrl || '').trim();
+      if (!url) return '';
+      const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+      if (ytMatch) return 'https://www.youtube.com/embed/' + ytMatch[1];
+      const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (driveMatch) return 'https://drive.google.com/file/d/' + driveMatch[1] + '/preview';
+      return url;
+    }
+
     function renderHomeVideoSlide() {
       const player = document.getElementById('home-video-player');
       const titleEl = document.getElementById('home-video-title');
@@ -1732,7 +1757,12 @@
         const url_asli = document.getElementById('vid-url').value;
         let res = await apiPost('admin_save_video', { judul, url_asli });
         if (!res.success && String(res.error || '').includes('tidak dikenal')) {
-          res = await apiGet('admin_save_video', { judul, url_asli });
+          // Fallback otomatis ke admin_save_announcement (kategori VIDEO) jika deployment GAS belum diperbarui
+          res = await apiPost('admin_save_announcement', {
+            judul,
+            kategori: 'VIDEO',
+            isi: parseVideoEmbedUrlClient(url_asli) + '|' + url_asli
+          });
         }
         showToast(res.message || res.error, !res.success);
         if (res.success) { e.target.reset(); await forceSyncHome(); }
