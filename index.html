@@ -491,7 +491,15 @@
         <!-- Admin Tab 1: Staff & Slip Gaji -->
         <div id="atab-staff" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-borderline overflow-x-auto">
-            <h3 class="font-bold text-primary mb-3">Daftar Staff &amp; Persetujuan</h3>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <h3 class="font-bold text-primary">Daftar Anggota Terdaftar &amp; Persetujuan</h3>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="STATE.adminStaffFilter='ALL'; renderAdminStaffTable();" class="px-2.5 py-1 rounded-lg bg-surface-low border border-borderline text-[11px] font-bold">Semua</button>
+                <button type="button" onclick="STATE.adminStaffFilter='PENDING'; renderAdminStaffTable();" class="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">Pending</button>
+                <button type="button" onclick="STATE.adminStaffFilter='AKTIF'; renderAdminStaffTable();" class="px-2.5 py-1 rounded-lg bg-green-50 border border-green-200 text-green-800 text-[11px] font-bold">Aktif</button>
+              </div>
+            </div>
+            <input id="admin-staff-search" oninput="renderAdminStaffTable()" type="text" placeholder="Cari nama anggota, No. WA, atau ID Keluarga..." class="w-full mb-3 px-3 py-2 rounded-xl border border-borderline text-xs" />
             <table class="w-full text-left text-xs">
               <thead class="bg-surface-low text-on-muted uppercase">
                 <tr><th class="p-2.5">Nama &amp; WA</th><th class="p-2.5">Premis</th><th class="p-2.5">Status</th><th class="p-2.5">Aksi</th></tr>
@@ -613,6 +621,20 @@
     </div>
   </div>
 
+  <!-- MODAL POP-UP DATA STAFF PER PREMIS -->
+  <div id="modal-premise-staff" class="fixed inset-0 z-[110] hidden bg-black/45 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-borderline shadow-xl">
+      <div class="flex items-start justify-between gap-3 border-b border-borderline pb-3">
+        <div>
+          <span id="modal-prem-sub" class="text-[11px] font-bold uppercase tracking-wider text-secondary-gold"></span>
+          <h3 id="modal-prem-title" class="font-serif text-xl font-bold text-primary"></h3>
+        </div>
+        <button type="button" onclick="document.getElementById('modal-premise-staff').classList.add('hidden')" class="text-on-muted hover:text-primary font-bold text-lg">✕</button>
+      </div>
+      <div id="modal-prem-staff-list" class="space-y-2.5 max-h-80 overflow-y-auto"></div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="no-print bg-primary-container text-white/90 text-xs py-5 px-4 text-center border-t-2 border-secondary-gold">
     Rekan Niaga Sejiwa • Portal Internal Staff, Keluarga, Absensi &amp; Slip Gaji
@@ -629,6 +651,8 @@
       premises: [],
       announcements: [],
       kuliahSessions: [],
+      staffDirectory: [],
+      adminStaffFilter: 'ALL',
       selectedHomeZone: 'ZON-001',
       staffSession: JSON.parse(localStorage.getItem('rns_staff_session') || 'null'),
       absenType: 'MASUK',
@@ -698,6 +722,7 @@
           STATE.premises = res.data.premises || [];
           STATE.announcements = res.data.announcements || [];
           STATE.kuliahSessions = res.data.kuliah_sessions || [];
+          STATE.staffDirectory = res.data.staff_directory || [];
           renderPublicKuliahList();
           renderHomeAnnouncements();
           renderHomeZonePills();
@@ -759,321 +784,45 @@
       }
       const zoneObj = STATE.zones.find((z) => z.id_zona === STATE.selectedHomeZone);
       const kota = zoneObj ? zoneObj.kota : '';
-      box.innerHTML = filtered.map((p) => `
-        <div class="bg-white rounded-2xl p-4 border border-borderline shadow-xs flex items-center gap-3.5 hover:border-secondary-gold transition">
-          <div class="w-11 h-11 rounded-xl bg-cream-soft text-secondary flex items-center justify-center shrink-0">
-            <span class="material-symbols-outlined">storefront</span>
-          </div>
-          <div>
-            <h3 class="font-bold text-primary text-sm">${p.nama_premis}</h3>
-            <span class="text-[11px] font-semibold text-on-muted">${p.sub_kategori} • ${kota}</span>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // =========================================================================
-    // FORM PENDAFTARAN MANDIRI STAFF
-    // =========================================================================
-    function populateZoneDropdown(selectId) {
-      const sel = document.getElementById(selectId);
-      sel.innerHTML = STATE.zones.map((z) => `<option value="${z.id_zona}">${z.pulau} — ${z.kota}</option>`).join('');
-    }
-
-    function populatePremiseDropdown(zoneSelectId, premiseSelectId) {
-      const zId = document.getElementById(zoneSelectId).value;
-      const sel = document.getElementById(premiseSelectId);
-      const list = STATE.premises.filter((p) => p.id_zona === zId);
-      sel.innerHTML = list.map((p) => `<option value="${p.id_premis}">[${p.sub_kategori}] ${p.nama_premis}</option>`).join('');
-    }
-
-    function toggleSpouseField(show) {
-      document.getElementById('spouse-wa-wrap').classList.toggle('hidden', !show);
-    }
-
-    function addChildRow() {
-      const container = document.getElementById('children-container');
-      const div = document.createElement('div');
-      div.className = 'child-row bg-white p-3.5 rounded-xl border border-borderline grid grid-cols-1 sm:grid-cols-4 gap-2 relative';
-      div.innerHTML = `
-        <input type="text" placeholder="Nama Anak" class="c-nama px-2.5 py-2 rounded-lg border border-borderline text-xs" required />
-        <input type="date" class="c-tgl px-2.5 py-2 rounded-lg border border-borderline text-xs" />
-        <select class="c-jk px-2.5 py-2 rounded-lg border border-borderline bg-white text-xs">
-          <option value="L">Laki-laki</option><option value="P">Perempuan</option>
-        </select>
-        <div class="flex gap-1">
-          <input type="text" placeholder="Sekolah / Jenjang" class="c-jenjang flex-1 px-2.5 py-2 rounded-lg border border-borderline text-xs" />
-          <button type="button" onclick="this.closest('.child-row').remove()" class="px-2 text-red-600 font-bold text-xs">✕</button>
-        </div>
-      `;
-      container.appendChild(div);
-    }
-
-    function openModalPremise() {
-      document.getElementById('modal-add-premise').classList.remove('hidden');
-    }
-
-    async function handleAddPremise(e) {
-      e.preventDefault();
-      const [kat, sub] = document.getElementById('new-prem-kat').value.split('|');
-      showLoader(true);
-      try {
-        const res = await apiPost('add_premise', {
-          id_zona: document.getElementById('new-prem-zona').value,
-          kategori_utama: kat,
-          sub_kategori: sub,
-          nama_premis: document.getElementById('new-prem-nama').value,
-          dibuat_oleh: 'STAFF'
-        });
-        if (!res.success) return showToast(res.error, true);
-        showToast('Premis baru ditambahkan!');
-        document.getElementById('modal-add-premise').classList.add('hidden');
-        await initApp();
-      } finally { showLoader(false); }
-    }
-
-    async function handleRegisterSubmit(e) {
-      e.preventDefault();
-      const children = Array.from(document.querySelectorAll('.child-row')).map((row) => ({
-        nama_anak: row.querySelector('.c-nama').value,
-        tgl_lahir: row.querySelector('.c-tgl').value,
-        jenis_kelamin: row.querySelector('.c-jk').value,
-        jenjang_pendidikan: row.querySelector('.c-jenjang').value
-      }));
-
-      showLoader(true);
-      try {
-        const res = await apiPost('register_staff', {
-          registration_token: document.getElementById('reg-token').value,
-          nama_lengkap: document.getElementById('reg-nama').value,
-          no_wa: document.getElementById('reg-wa').value,
-          pin: document.getElementById('reg-pin').value,
-          jabatan: document.getElementById('reg-jabatan').value,
-          id_premis: document.getElementById('reg-premis').value,
-          no_kk: document.getElementById('reg-kk').value,
-          peran_keluarga: document.getElementById('reg-peran').value,
-          no_wa_pasangan: document.getElementById('reg-wa-pasangan').value,
-          anak: children
-        });
-        if (!res.success) return showToast(res.error, true);
-        document.getElementById('reg-wa-confirm-link').href = res.data.admin_wa_url;
-        document.getElementById('modal-reg-success').classList.remove('hidden');
-        e.target.reset();
-        document.getElementById('children-container').innerHTML = '';
-      } finally { showLoader(false); }
-    }
-
-    // =========================================================================
-    // PORTAL STAFF (LOGIN, ABSEN SELFIE+GPS, SLIP GAJI, KELUARGA)
-    // =========================================================================
-    function checkStaffSession() {
-      const loggedIn = !!STATE.staffSession;
-      document.getElementById('portal-login-box').classList.toggle('hidden', loggedIn);
-      document.getElementById('portal-dashboard').classList.toggle('hidden', !loggedIn);
-      if (loggedIn) loadStaffDashboard();
-    }
-
-    async function handleStaffLogin(e) {
-      e.preventDefault();
-      showLoader(true);
-      try {
-        const res = await apiPost('login_staff', {
-          no_wa: document.getElementById('login-wa').value,
-          pin: document.getElementById('login-pin').value
-        });
-        if (!res.success) return showToast(res.error, true);
-        STATE.staffSession = res.data;
-        localStorage.setItem('rns_staff_session', JSON.stringify(res.data));
-        checkStaffSession();
-      } finally { showLoader(false); }
-    }
-
-    function logoutStaff() {
-      STATE.staffSession = null;
-      localStorage.removeItem('rns_staff_session');
-      if (STATE.mediaStream) STATE.mediaStream.getTracks().forEach((t) => t.stop());
-      checkStaffSession();
-    }
-
-    async function loadStaffDashboard() {
-      showLoader(true);
-      try {
-        const idStaff = STATE.staffSession.id_staff;
-        const [profRes, slipRes, absRes] = await Promise.all([
-          apiGet('get_staff_profile', { id_staff: idStaff }),
-          apiGet('get_payslips', { id_staff: idStaff }),
-          apiGet('get_attendance_history', { id_staff: idStaff })
-        ]);
-        if (profRes.success) {
-          const { staff, family, children, premise } = profRes.data;
-          document.getElementById('staff-greet-name').textContent = "Assalamu'alaikum, " + staff.nama_lengkap;
-          document.getElementById('staff-greet-premise').textContent = (premise ? premise.nama_premis : '-') + ' • ' + (staff.jabatan || 'Staff');
-          document.getElementById('edit-nama').value = staff.nama_lengkap || '';
-          document.getElementById('edit-jabatan').value = staff.jabatan || '';
-          document.getElementById('fam-id-badge').textContent = 'ID Keluarga: ' + (family ? family.id_keluarga : staff.id_keluarga);
-          document.getElementById('fam-children-list').innerHTML = children.length
-            ? children.map((c) => `<div class="p-3.5 rounded-xl bg-surface-low border border-borderline"><p class="font-bold text-primary text-sm">${c.nama_anak}</p><p class="text-xs text-on-muted">${c.tgl_lahir || '-'} • ${c.jenjang_pendidikan || '-'}</p></div>`).join('')
-            : '<p class="text-sm text-on-muted">Belum ada data anak tercatat.</p>';
-        }
-        if (slipRes.success) {
-          document.getElementById('payslip-list').innerHTML = slipRes.data.length
-            ? slipRes.data.map((s) => `
-              <div class="bg-white rounded-2xl p-5 border border-borderline space-y-3">
-                <div class="flex justify-between items-center border-b border-dashed border-borderline pb-2">
-                  <span class="font-bold text-primary">${s.periode}</span>
-                  <span class="text-xs text-on-muted">${s.id_slip}</span>
-                </div>
-                <div class="space-y-1.5 text-sm tabular-nums">
-                  <div class="flex justify-between"><span>Gaji Pokok</span><span>${formatRp(s.gaji_pokok)}</span></div>
-                  <div class="flex justify-between"><span>Tunjangan</span><span>${formatRp(s.tunjangan)}</span></div>
-                  <div class="flex justify-between"><span>Tambahan</span><span>${formatRp(s.tambahan)}</span></div>
-                  <div class="flex justify-between text-red-700"><span>Potongan</span><span>- ${formatRp(s.potongan)}</span></div>
-                </div>
-                <div class="bg-cream-soft border border-secondary-gold/40 rounded-xl p-3 flex justify-between items-center">
-                  <span class="text-xs font-bold text-secondary">Total Gaji Bersih</span>
-                  <span class="text-lg font-bold text-primary tabular-nums">${formatRp(s.total_bersih)}</span>
-                </div>
-              </div>
-            `).join('')
-            : '<div class="col-span-2 bg-white rounded-2xl p-5 border border-borderline text-sm text-on-muted">Belum ada slip gaji yang diterbitkan admin.</div>';
-        }
-        if (absRes.success) {
-          document.getElementById('absen-history-list').innerHTML = absRes.data.length
-            ? absRes.data.slice(0, 8).map((a) => `
-              <div class="p-3 rounded-xl bg-surface-low border border-borderline flex items-center justify-between gap-2">
-                <div>
-                  <span class="font-bold text-primary text-xs">${a.tipe_absen} • ${a.tanggal} ${a.waktu}</span>
-                  <p class="text-[11px] text-on-muted">GPS: ${a.latitude}, ${a.longitude}</p>
-                </div>
-                ${a.foto_url ? `<a href="${a.foto_url}" target="_blank" class="text-xs font-bold text-secondary underline">Lihat Foto</a>` : ''}
-              </div>
-            `).join('')
-            : '<p class="text-xs text-on-muted">Belum ada riwayat absensi.</p>';
-        }
-      } finally { showLoader(false); }
-    }
-
-    function switchStaffTab(tab) {
-      ['absen', 'slip', 'keluarga', 'profil'].forEach((t) => {
-        document.getElementById('stab-' + t).classList.toggle('hidden', t !== tab);
-      });
-      document.querySelectorAll('.stab-btn').forEach((btn) => {
-        const active = btn.dataset.stab === tab;
-        btn.className = 'stab-btn px-4 py-2 rounded-lg text-sm font-bold ' + (active ? 'bg-primary-container text-white' : 'text-on-muted bg-white border border-borderline');
-      });
-    }
-
-    function setAbsenType(type) {
-      STATE.absenType = type;
-      document.getElementById('btn-type-masuk').className = 'py-2.5 rounded-xl text-xs font-bold ' + (type === 'MASUK' ? 'bg-primary-container text-white' : 'bg-surface-low text-on-muted border border-borderline');
-      document.getElementById('btn-type-pulang').className = 'py-2.5 rounded-xl text-xs font-bold ' + (type === 'PULANG' ? 'bg-primary-container text-white' : 'bg-surface-low text-on-muted border border-borderline');
-    }
-
-    async function startCamera() {
-      try {
-        STATE.mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-        const vid = document.getElementById('absen-video');
-        vid.srcObject = STATE.mediaStream;
-        vid.classList.remove('hidden');
-        document.getElementById('absen-preview').classList.add('hidden');
-      } catch (err) {
-        showToast('Izin kamera ditolak atau tidak tersedia.', true);
-      }
-    }
-
-    function captureSelfie() {
-      const vid = document.getElementById('absen-video');
-      const canvas = document.getElementById('absen-canvas');
-      if (!vid.srcObject) return showToast('Aktifkan kamera terlebih dahulu.', true);
-      canvas.width = 480;
-      canvas.height = 360;
-      canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
-      STATE.capturedSelfie = canvas.toDataURL('image/jpeg', 0.75);
-      const prev = document.getElementById('absen-preview');
-      prev.src = STATE.capturedSelfie;
-      prev.classList.remove('hidden');
-      vid.classList.add('hidden');
-    }
-
-    function detectGPS() {
-      if (!navigator.geolocation) return showToast('Browser tidak mendukung GPS.', true);
-      document.getElementById('gps-status').textContent = 'Mencari koordinat...';
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          STATE.gps = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy) };
-          document.getElementById('gps-status').textContent = `${STATE.gps.lat}, ${STATE.gps.lng} (±${STATE.gps.acc}m)`;
-        },
-        () => showToast('Gagal mendeteksi lokasi GPS. Pastikan izin lokasi aktif.', true),
-        { enableHighAccuracy: true }
-      );
-    }
-
-    async function submitAttendance() {
-      if (!STATE.capturedSelfie) return showToast('Ambil foto selfie terlebih dahulu.', true);
-      if (!STATE.gps.lat) return showToast('Deteksi lokasi GPS terlebih dahulu.', true);
-      showLoader(true);
-      try {
-        const res = await apiPost('submit_attendance', {
-          id_staff: STATE.staffSession.id_staff,
-          id_premis: STATE.staffSession.id_premis,
-          tipe_absen: STATE.absenType,
-          latitude: STATE.gps.lat,
-          longitude: STATE.gps.lng,
-          akurasi_meter: STATE.gps.acc,
-          foto_base64: STATE.capturedSelfie,
-          catatan: document.getElementById('absen-catatan').value
-        });
-        if (!res.success) return showToast(res.error, true);
-        showToast(res.message);
-        await loadStaffDashboard();
-      } finally { showLoader(false); }
-    }
-
-    async function handleUpdateProfile(e) {
-      e.preventDefault();
-      showLoader(true);
-      try {
-        const res = await apiPost('update_staff_profile', {
-          id_staff: STATE.staffSession.id_staff,
-          nama_lengkap: document.getElementById('edit-nama').value,
-          jabatan: document.getElementById('edit-jabatan').value
-        });
-        showToast(res.message || res.error, !res.success);
-      } finally { showLoader(false); }
-    }
-
-    // =========================================================================
-    // PROGRAM KULIAH FORM (LINK WA)
-    // =========================================================================
-    function showKuliahList() {
-      document.getElementById('kuliah-list-wrap').classList.remove('hidden');
-      document.getElementById('kuliah-form-wrap').classList.add('hidden');
-      renderPublicKuliahList();
-    }
-
-    function renderPublicKuliahList() {
-      const box = document.getElementById('public-kuliah-list');
-      if (!box) return;
-      if (!STATE.kuliahSessions.length) {
-        box.innerHTML = '<div class="bg-white rounded-2xl p-6 border border-borderline text-sm text-on-muted text-center">Belum ada sesi program kuliah aktif. Admin dapat membuat sesi baru dari Dashboard Admin.</div>';
-        return;
-      }
-      box.innerHTML = STATE.kuliahSessions.map((k) => {
-        const link = window.location.origin + window.location.pathname + '?kuliah=' + k.id_kuliah;
-        const waText = encodeURIComponent("Silakan isi daftar hadir Program Kuliah: " + k.judul_kuliah + "\n" + link);
+      box.innerHTML = filtered.map((p) => {
+        const count = STATE.staffDirectory.filter((s) => s.id_premis === p.id_premis).length;
         return `
-          <div class="bg-white rounded-2xl p-4 border border-borderline shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 class="font-bold text-primary text-base">${k.judul_kuliah}</h3>
-              <p class="text-xs text-on-muted mt-0.5">${k.pemateri || '-'} • ${k.tanggal || '-'} (${k.jam || '-'} WIB)</p>
+          <button type="button" onclick="openPremiseStaffModal('${p.id_premis}')" class="text-left w-full bg-white rounded-2xl p-4 border border-borderline shadow-xs flex items-center justify-between gap-3 hover:border-secondary-gold hover:bg-cream-light/50 transition group">
+            <div class="flex items-center gap-3.5">
+              <div class="w-11 h-11 rounded-xl bg-cream-soft text-secondary flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined">storefront</span>
+              </div>
+              <div>
+                <h3 class="font-bold text-primary text-sm group-hover:underline">${p.nama_premis}</h3>
+                <span class="text-[11px] font-semibold text-on-muted">${p.sub_kategori} • ${kota}</span>
+              </div>
             </div>
-            <div class="flex gap-2 shrink-0">
-              <button onclick="openKuliahForm('${k.id_kuliah}')" class="px-3.5 py-2 rounded-xl bg-primary-container text-white text-xs font-bold">Isi Kehadiran</button>
-              <a href="https://wa.me/?text=${waText}" target="_blank" class="px-3.5 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold">Bagikan WA</a>
-            </div>
-          </div>
+            <span class="px-2.5 py-1 rounded-full bg-surface-low border border-borderline text-[11px] font-bold text-primary-container shrink-0">${count} Staff</span>
+          </button>
         `;
       }).join('');
+    }
+
+    function openPremiseStaffModal(idPremis) {
+      const prem = STATE.premises.find((p) => p.id_premis === idPremis);
+      if (!prem) return;
+      const zone = STATE.zones.find((z) => z.id_zona === prem.id_zona);
+      document.getElementById('modal-prem-title').textContent = prem.nama_premis;
+      document.getElementById('modal-prem-sub').textContent = prem.sub_kategori + (zone ? ' • ' + zone.kota : '');
+      const staffList = STATE.staffDirectory.filter((s) => s.id_premis === idPremis);
+      const body = document.getElementById('modal-prem-staff-list');
+      body.innerHTML = staffList.length
+        ? staffList.map((s) => `
+            <div class="p-3 rounded-xl bg-surface-low border border-borderline flex items-center justify-between gap-2">
+              <div>
+                <p class="font-bold text-primary text-sm">${s.nama_lengkap}</p>
+                <p class="text-xs text-on-muted">${s.jabatan || 'Staff'}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[10px] font-bold">AKTIF</span>
+            </div>
+          `).join('')
+        : '<p class="text-sm text-on-muted text-center py-4">Belum ada staff aktif yang terdaftar di premis ini.</p>';
+      document.getElementById('modal-premise-staff').classList.remove('hidden');
     }
 
     async function openKuliahForm(idKuliah) {
@@ -1146,20 +895,7 @@
         document.getElementById('set-token').value = tok;
         document.getElementById('set-wa').value = admWa;
 
-        document.getElementById('admin-staff-tbody').innerHTML = staff.map((s) => {
-          const prem = premises.find((p) => p.id_premis === s.id_premis);
-          return `
-            <tr>
-              <td class="p-2.5"><b>${s.nama_lengkap}</b><br><span class="text-on-muted">${s.no_wa}</span></td>
-              <td class="p-2.5">${prem ? prem.nama_premis : s.id_premis}</td>
-              <td class="p-2.5"><span class="px-2 py-0.5 rounded-full font-bold ${s.status === 'AKTIF' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">${s.status}</span></td>
-              <td class="p-2.5 space-x-1">
-                ${s.status !== 'AKTIF' ? `<button onclick="approveStaff('${s.id_staff}','AKTIF')" class="px-2 py-1 rounded bg-primary-container text-white font-bold">Approve</button>` : ''}
-                <button onclick="selectStaffForPay('${s.id_staff}')" class="px-2 py-1 rounded bg-cream-soft border border-secondary-gold text-secondary font-bold">Gaji</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
+        renderAdminStaffTable();
 
         document.getElementById('pay-staff').innerHTML = staff.map((s) => `<option value="${s.id_staff}|${s.id_premis}">${s.nama_lengkap}</option>`).join('');
 
@@ -1180,6 +916,32 @@
           `;
         }).join('') || '<p class="text-on-muted text-xs">Belum ada sesi program kuliah.</p>';
       } finally { showLoader(false); }
+    }
+
+    function renderAdminStaffTable() {
+      if (!STATE.adminData) return;
+      const { staff, premises, children } = STATE.adminData;
+      const q = (document.getElementById('admin-staff-search')?.value || '').toLowerCase();
+      const filtered = staff.filter((s) => {
+        const matchStatus = STATE.adminStaffFilter === 'ALL' || s.status === STATE.adminStaffFilter;
+        const matchQ = !q || String(s.nama_lengkap || '').toLowerCase().includes(q) || String(s.no_wa || '').includes(q) || String(s.id_keluarga || '').toLowerCase().includes(q);
+        return matchStatus && matchQ;
+      });
+      document.getElementById('admin-staff-tbody').innerHTML = filtered.length ? filtered.map((s) => {
+        const prem = premises.find((p) => p.id_premis === s.id_premis);
+        const childCount = children.filter((c) => c.id_keluarga === s.id_keluarga).length;
+        return `
+          <tr>
+            <td class="p-2.5"><b>${s.nama_lengkap}</b><br><span class="text-on-muted">${s.no_wa} • ${s.id_keluarga} (${childCount} anak)</span></td>
+            <td class="p-2.5">${prem ? prem.nama_premis : s.id_premis}</td>
+            <td class="p-2.5"><span class="px-2 py-0.5 rounded-full font-bold ${s.status === 'AKTIF' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">${s.status}</span></td>
+            <td class="p-2.5 space-x-1 whitespace-nowrap">
+              ${s.status !== 'AKTIF' ? `<button onclick="approveStaff('${s.id_staff}','AKTIF')" class="px-2 py-1 rounded bg-primary-container text-white font-bold">Approve</button>` : ''}
+              <button onclick="selectStaffForPay('${s.id_staff}')" class="px-2 py-1 rounded bg-cream-soft border border-secondary-gold text-secondary font-bold">Gaji</button>
+            </td>
+          </tr>
+        `;
+      }).join('') : '<tr><td colspan="4" class="p-4 text-center text-on-muted">Belum ada anggota terdaftar yang cocok.</td></tr>';
     }
 
     async function approveStaff(idStaff, status) {
