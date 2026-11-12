@@ -866,6 +866,7 @@
     async function apiPost(action, data = {}) {
       const res = await fetch(GAS_URL, {
         method: 'POST',
+        redirect: 'follow',
         body: JSON.stringify({ action, data })
       });
       return await res.json();
@@ -1727,10 +1728,12 @@
       e.preventDefault();
       showLoader(true);
       try {
-        const res = await apiPost('admin_save_video', {
-          judul: document.getElementById('vid-judul').value,
-          url_asli: document.getElementById('vid-url').value
-        });
+        const judul = document.getElementById('vid-judul').value;
+        const url_asli = document.getElementById('vid-url').value;
+        let res = await apiPost('admin_save_video', { judul, url_asli });
+        if (!res.success && String(res.error || '').includes('tidak dikenal')) {
+          res = await apiGet('admin_save_video', { judul, url_asli });
+        }
         showToast(res.message || res.error, !res.success);
         if (res.success) { e.target.reset(); await forceSyncHome(); }
       } finally { showLoader(false); }
