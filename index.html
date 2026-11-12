@@ -710,32 +710,47 @@
     // =========================================================================
     // INISIALISASI AWAL & BERANDA
     // =========================================================================
+    function applyInitData(data) {
+      STATE.zones = data.zones || [];
+      STATE.premises = data.premises || [];
+      STATE.announcements = data.announcements || [];
+      STATE.kuliahSessions = data.kuliah_sessions || [];
+      STATE.staffDirectory = data.staff_directory || [];
+      renderHomeAnnouncements();
+      renderHomeZonePills();
+      renderHomePremises();
+      renderPublicKuliahList();
+      populateZoneDropdown('reg-zona');
+      populateZoneDropdown('new-prem-zona');
+      populatePremiseDropdown('reg-zona', 'reg-premis');
+    }
+
     async function initApp() {
       const urlParams = new URLSearchParams(window.location.search);
       const kuliahId = urlParams.get('kuliah');
 
-      showLoader(true);
+      // 1. Tampilkan cache lokal secara instan (<50ms) tanpa memblokir layar
+      const cachedRaw = localStorage.getItem('rns_init_cache');
+      if (cachedRaw) {
+        try {
+          applyInitData(JSON.parse(cachedRaw));
+        } catch (e) {}
+      } else {
+        showLoader(true);
+      }
+
+      // 2. Ambil data terbaru di background (Stale-While-Revalidate)
       try {
         const res = await apiGet('get_init_data');
         if (res.success) {
-          STATE.zones = res.data.zones || [];
-          STATE.premises = res.data.premises || [];
-          STATE.announcements = res.data.announcements || [];
-          STATE.kuliahSessions = res.data.kuliah_sessions || [];
-          STATE.staffDirectory = res.data.staff_directory || [];
-          renderPublicKuliahList();
-          renderHomeAnnouncements();
-          renderHomeZonePills();
-          renderHomePremises();
-          populateZoneDropdown('reg-zona');
-          populateZoneDropdown('new-prem-zona');
-          populatePremiseDropdown('reg-zona', 'reg-premis');
+          localStorage.setItem('rns_init_cache', JSON.stringify(res.data));
+          applyInitData(res.data);
         }
         if (kuliahId) {
           await openKuliahForm(kuliahId);
         }
       } catch (err) {
-        showToast('Gagal terhubung ke server GAS: ' + err.message, true);
+        if (!cachedRaw) showToast('Gagal terhubung ke server GAS: ' + err.message, true);
       } finally {
         showLoader(false);
       }
