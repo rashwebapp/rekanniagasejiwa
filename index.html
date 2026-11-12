@@ -723,7 +723,8 @@
       capturedSelfie: '',
       gps: { lat: '', lng: '', acc: 0 },
       mediaStream: null,
-      adminData: null
+      adminData: null,
+      adminPollTimer: null
     };
 
     // =========================================================================
@@ -768,6 +769,7 @@
         document.getElementById('view-' + v).classList.toggle('hidden', v !== viewName);
       });
       if (viewName === 'portal') checkStaffSession();
+      if (viewName === 'admin' && !document.getElementById('admin-workspace').classList.contains('hidden')) loadAdminOverview(true);
       if (viewName === 'kuliah' && !new URLSearchParams(window.location.search).get('kuliah')) showKuliahList();
     }
 
@@ -1272,7 +1274,14 @@
       if (pin !== '1234') return showToast('PIN Admin salah.', true);
       document.getElementById('admin-gate').classList.add('hidden');
       document.getElementById('admin-workspace').classList.remove('hidden');
-      loadAdminOverview();
+      loadAdminOverview(false);
+      if (!STATE.adminPollTimer) {
+        STATE.adminPollTimer = setInterval(() => {
+          if (!document.getElementById('view-admin').classList.contains('hidden') && !document.getElementById('admin-workspace').classList.contains('hidden')) {
+            loadAdminOverview(true);
+          }
+        }, 15000);
+      }
     }
 
     function switchAdminTab(tab) {
@@ -1285,8 +1294,8 @@
       });
     }
 
-    async function loadAdminOverview() {
-      showLoader(true);
+    async function loadAdminOverview(silent = false) {
+      if (!silent) showLoader(true);
       try {
         const res = await apiGet('admin_overview');
         if (!res.success) return showToast(res.error, true);
@@ -1305,7 +1314,10 @@
 
         renderAdminStaffTable();
 
-        document.getElementById('pay-staff').innerHTML = staff.map((s) => `<option value="${s.id_staff}|${s.id_premis}">${s.nama_lengkap}</option>`).join('');
+        const paySel = document.getElementById('pay-staff');
+        const prevPayVal = paySel.value;
+        paySel.innerHTML = staff.map((s) => `<option value="${s.id_staff}|${s.id_premis}">${s.nama_lengkap}</option>`).join('');
+        if (prevPayVal) paySel.value = prevPayVal;
 
         document.getElementById('admin-kuliah-list').innerHTML = kuliah_sessions.map((k) => {
           const list = kuliah_attendance.filter((a) => a.id_kuliah === k.id_kuliah);
