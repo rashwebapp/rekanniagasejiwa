@@ -902,7 +902,7 @@
                 <p class="font-bold text-primary text-sm">${s.nama_lengkap}</p>
                 <p class="text-xs text-on-muted">${s.jabatan || 'Staff'}</p>
               </div>
-              <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[10px] font-bold">AKTIF</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${s.status === 'AKTIF' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">${s.status}</span>
             </div>
           `).join('')
         : '<p class="text-sm text-on-muted text-center py-4">Belum ada staff aktif yang terdaftar di premis ini.</p>';
@@ -1067,10 +1067,28 @@
       showLoader(true);
       try {
         const idStaff = STATE.staffSession.id_staff;
+        let dashData = null;
         const res = await apiGet('get_staff_dashboard', { id_staff: idStaff });
-        if (!res.success) return showToast(res.error || 'Gagal memuat data staff.', true);
+        if (res.success) {
+          dashData = res.data;
+        } else if (String(res.error || '').includes('tidak dikenal')) {
+          // Fallback otomatis jika Web App GAS masih memakai versi deployment lama
+          const [profRes, slipRes, absRes] = await Promise.all([
+            apiGet('get_staff_profile', { id_staff: idStaff }),
+            apiGet('get_payslips', { id_staff: idStaff }),
+            apiGet('get_attendance_history', { id_staff: idStaff })
+          ]);
+          if (!profRes.success) return showToast(profRes.error || 'Gagal memuat profil staff.', true);
+          dashData = {
+            ...profRes.data,
+            payslips: slipRes.success ? (slipRes.data || []) : [],
+            attendance: absRes.success ? (absRes.data || []) : []
+          };
+        } else {
+          return showToast(res.error || 'Gagal memuat data staff.', true);
+        }
 
-        const { staff, family, children, premise, payslips, attendance } = res.data;
+        const { staff, family, children, premise, payslips, attendance } = dashData;
         document.getElementById('staff-greet-name').textContent = "Assalamu'alaikum, " + staff.nama_lengkap;
         document.getElementById('staff-greet-premise').textContent = (premise ? premise.nama_premis : '-') + ' • ' + (staff.jabatan || 'Staff');
         document.getElementById('edit-nama').value = staff.nama_lengkap || '';
@@ -1300,6 +1318,10 @@
         const res = await apiGet('admin_overview');
         if (!res.success) return showToast(res.error, true);
         STATE.adminData = res.data;
+        STATE.staffDirectory = (res.data.staff || [])
+          .filter((s) => s.status !== 'DITOLAK')
+          .map((s) => ({ id_staff: s.id_staff, id_premis: s.id_premis, nama_lengkap: s.nama_lengkap, jabatan: s.jabatan, status: s.status }));
+        renderHomePremises();
         const { staff, families, children, premises, kuliah_sessions, kuliah_attendance, settings } = res.data;
 
         document.getElementById('kpi-aktif').textContent = staff.filter((s) => s.status === 'AKTIF').length;
