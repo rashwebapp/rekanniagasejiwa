@@ -172,9 +172,15 @@
     <!-- VIEW 2: FORM PENDAFTARAN MANDIRI STAFF                    -->
     <!-- ========================================================= -->
     <section id="view-register" class="hidden max-w-2xl mx-auto space-y-6">
-      <div class="bg-cream-soft border border-borderline rounded-2xl p-6 text-center space-y-1">
-        <h2 class="font-serif text-2xl font-bold text-primary">Pendaftaran Mandiri Staff</h2>
-        <p class="text-xs sm:text-sm text-on-muted">Data orang tua &amp; anak terintegrasi dalam satu ID Keluarga agar tidak terduplikasi.</p>
+      <div class="bg-cream-soft border border-borderline rounded-2xl p-6 text-center space-y-3">
+        <div>
+          <h2 class="font-serif text-2xl font-bold text-primary">Pendaftaran Mandiri Staff</h2>
+          <p class="text-xs sm:text-sm text-on-muted mt-1">Data orang tua &amp; anak terintegrasi dalam satu ID Keluarga agar tidak terduplikasi.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-2">
+          <button type="button" onclick="copyRegisterLink()" class="px-3.5 py-1.5 rounded-xl bg-white border border-borderline text-xs font-bold text-primary hover:bg-surface-low">Salin Link Form Daftar</button>
+          <a id="share-reg-wa-btn" href="#" target="_blank" onclick="updateShareRegWaLink()" class="px-3.5 py-1.5 rounded-xl bg-[#25D366] text-white text-xs font-bold">Bagikan Link Form ke WA</a>
+        </div>
       </div>
 
       <form id="form-register" onsubmit="handleRegisterSubmit(event)" class="space-y-5">
@@ -202,16 +208,24 @@
               <input id="reg-nama" required type="text" placeholder="Nama sesuai KTP" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-on-muted mb-1">Nomor WhatsApp Aktif *</label>
+              <label class="block text-xs font-semibold text-on-muted mb-1">Nomor WhatsApp Aktif <span id="reg-wa-req-mark">*</span></label>
               <input id="reg-wa" required type="tel" placeholder="0812xxxxxxxx" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm" />
+              <label class="inline-flex items-center gap-2 mt-1.5 text-xs text-secondary font-semibold cursor-pointer">
+                <input id="reg-tanpa-hp" type="checkbox" onchange="toggleNoHpField(this.checked)" class="accent-primary-container" />
+                <span>Anggota ini tidak memiliki HP / WA</span>
+              </label>
             </div>
             <div>
               <label class="block text-xs font-semibold text-on-muted mb-1">Buat PIN Login (4–6 Digit Angka) *</label>
               <input id="reg-pin" required type="password" minlength="4" maxlength="6" pattern="[0-9]{4,6}" placeholder="Contoh: 1234" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-on-muted mb-1">Jabatan / Peran *</label>
-              <input id="reg-jabatan" required type="text" placeholder="Misal: Kasir / Guru / Kepala Unit" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm" />
+              <label class="block text-xs font-semibold text-on-muted mb-1">Jabatan *</label>
+              <select id="reg-jabatan" required class="w-full px-3.5 py-2.5 rounded-xl border border-borderline bg-white focus:outline-none focus:border-primary-container text-sm">
+                <option value="Staff">Staff</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Manager">Manager</option>
+              </select>
             </div>
           </div>
 
@@ -646,9 +660,59 @@
     // =========================================================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbxf7JGtnQG0sKNNQvB-nko75MeZWGRUCtBxiwrxFjb2_isNDISYeafLUQo8fHaITLAwJw/exec';
 
+
+    const DEFAULT_ZONES = [
+      { id_zona: 'ZON-001', pulau: 'Jawa', kota: 'Sentul' },
+      { id_zona: 'ZON-002', pulau: 'Jawa', kota: 'Bekasi' },
+      { id_zona: 'ZON-003', pulau: 'Jawa', kota: 'Bandung' },
+      { id_zona: 'ZON-004', pulau: 'Jawa', kota: 'Subang' },
+      { id_zona: 'ZON-005', pulau: 'Jawa', kota: 'Tasik' },
+      { id_zona: 'ZON-006', pulau: 'Jawa', kota: 'Semarang' },
+      { id_zona: 'ZON-007', pulau: 'Jawa', kota: 'Wonosobo' },
+      { id_zona: 'ZON-008', pulau: 'Jawa', kota: 'Surabaya' },
+      { id_zona: 'ZON-009', pulau: 'Sumatra', kota: 'Palembang' },
+      { id_zona: 'ZON-010', pulau: 'Sumatra', kota: 'Pekanbaru' },
+      { id_zona: 'ZON-011', pulau: 'Sumatra', kota: 'Padang' },
+      { id_zona: 'ZON-012', pulau: 'Sumatra', kota: 'Medan' },
+      { id_zona: 'ZON-013', pulau: 'Sumatra', kota: 'Aceh' },
+      { id_zona: 'ZON-014', pulau: 'Kalimantan', kota: 'Balikpapan' },
+      { id_zona: 'ZON-015', pulau: 'Kalimantan', kota: 'Pontianak' },
+      { id_zona: 'ZON-016', pulau: 'Sulawesi', kota: 'Makasar' },
+      { id_zona: 'ZON-017', pulau: 'Lombok', kota: 'Lombok' },
+      { id_zona: 'ZON-018', pulau: 'Bali', kota: 'Bali' },
+      { id_zona: 'ZON-019', pulau: 'Papua', kota: 'Papua' }
+    ];
+    const DEFAULT_PREMISES = [
+      { id_premis: 'PRM-001', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Harapan Corner' },
+      { id_premis: 'PRM-002', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Noor Bakery' },
+      { id_premis: 'PRM-003', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Gallery Al Fatih' },
+      { id_premis: 'PRM-004', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Klinik Ikhwan' },
+      { id_premis: 'PRM-005', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Salon Khadijah' },
+      { id_premis: 'PRM-006', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Toko AS SALAM' },
+      { id_premis: 'PRM-007', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Ikhwan Butcher' },
+      { id_premis: 'PRM-008', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Zam Water' },
+      { id_premis: 'PRM-009', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'ILaundry Babakan Madang' },
+      { id_premis: 'PRM-010', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'ILaundry Jungleland' },
+      { id_premis: 'PRM-011', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Kilang Songkok' },
+      { id_premis: 'PRM-012', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Pojok Kuliner' },
+      { id_premis: 'PRM-013', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Konveksi' },
+      { id_premis: 'PRM-014', id_zona: 'ZON-001', kategori_utama: 'Komersial', sub_kategori: 'UMKM', nama_premis: 'Gerai UMMI UMMI' },
+      { id_premis: 'PRM-015', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Pusat Pendidikan Harapan (PPH)' },
+      { id_premis: 'PRM-016', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Pusat Pendidikan Barokah (PPB)' },
+      { id_premis: 'PRM-017', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Rumah Tamu Zon (RTZ)' },
+      { id_premis: 'PRM-018', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Asrama Putra PG' },
+      { id_premis: 'PRM-019', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Asrama Putra TK' },
+      { id_premis: 'PRM-020', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Asrama Putri Kecil' },
+      { id_premis: 'PRM-021', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Asrama Putri Besar' },
+      { id_premis: 'PRM-022', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Pendidikan', nama_premis: 'Nursery' },
+      { id_premis: 'PRM-023', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Rumah Staff', nama_premis: 'Dapur Bandar' },
+      { id_premis: 'PRM-024', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Rumah Staff', nama_premis: 'Rumah Putra 03' },
+      { id_premis: 'PRM-025', id_zona: 'ZON-001', kategori_utama: 'Non-Komersial', sub_kategori: 'Rumah Staff', nama_premis: 'Rumah Putra 180' }
+    ];
+
     let STATE = {
-      zones: [],
-      premises: [],
+      zones: DEFAULT_ZONES,
+      premises: DEFAULT_PREMISES,
       announcements: [],
       kuliahSessions: [],
       staffDirectory: [],
@@ -711,8 +775,8 @@
     // INISIALISASI AWAL & BERANDA
     // =========================================================================
     function applyInitData(data) {
-      STATE.zones = data.zones || [];
-      STATE.premises = data.premises || [];
+      STATE.zones = (data.zones && data.zones.length) ? data.zones : DEFAULT_ZONES;
+      STATE.premises = (data.premises && data.premises.length) ? data.premises : DEFAULT_PREMISES;
       STATE.announcements = data.announcements || [];
       STATE.kuliahSessions = data.kuliah_sessions || [];
       STATE.staffDirectory = data.staff_directory || [];
@@ -728,6 +792,9 @@
     async function initApp() {
       const urlParams = new URLSearchParams(window.location.search);
       const kuliahId = urlParams.get('kuliah');
+      const isDaftar = urlParams.get('daftar');
+      applyInitData({ zones: DEFAULT_ZONES, premises: DEFAULT_PREMISES, announcements: [], kuliah_sessions: [], staff_directory: [] });
+      if (isDaftar) switchView('register');
 
       // 1. Tampilkan cache lokal secara instan (<50ms) tanpa memblokir layar
       const cachedRaw = localStorage.getItem('rns_init_cache');
@@ -838,6 +905,332 @@
           `).join('')
         : '<p class="text-sm text-on-muted text-center py-4">Belum ada staff aktif yang terdaftar di premis ini.</p>';
       document.getElementById('modal-premise-staff').classList.remove('hidden');
+    }
+
+
+    // =========================================================================
+    // FORM PENDAFTARAN MANDIRI STAFF
+    // =========================================================================
+    function populateZoneDropdown(selectId) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      sel.innerHTML = STATE.zones.map((z) => `<option value="${z.id_zona}">${z.pulau} — ${z.kota}</option>`).join('');
+    }
+
+    function populatePremiseDropdown(zoneSelectId, premiseSelectId) {
+      const zEl = document.getElementById(zoneSelectId);
+      const sel = document.getElementById(premiseSelectId);
+      if (!zEl || !sel) return;
+      const zId = zEl.value;
+      const list = STATE.premises.filter((p) => p.id_zona === zId);
+      sel.innerHTML = list.length ? list.map((p) => `<option value="${p.id_premis}">[${p.sub_kategori}] ${p.nama_premis}</option>`).join('') : '<option value="">Belum ada premis (klik + Tambah Premis)</option>';
+    }
+
+    function toggleNoHpField(checked) {
+      const waInput = document.getElementById('reg-wa');
+      const reqMark = document.getElementById('reg-wa-req-mark');
+      waInput.required = !checked;
+      waInput.disabled = checked;
+      if (checked) waInput.value = '';
+      waInput.placeholder = checked ? 'Otomatis dibuat sistem (Tanpa HP)' : '0812xxxxxxxx';
+      if (reqMark) reqMark.classList.toggle('hidden', checked);
+    }
+
+    function getRegisterShareUrl() {
+      return window.location.origin + window.location.pathname + '?daftar=1';
+    }
+
+    function copyRegisterLink() {
+      navigator.clipboard.writeText(getRegisterShareUrl());
+      showToast('Link form pendaftaran disalin!');
+    }
+
+    function updateShareRegWaLink() {
+      const url = getRegisterShareUrl();
+      const text = encodeURIComponent("Assalamu'alaikum, silakan isi Form Pendaftaran Staff Rekan Niaga Sejiwa melalui link berikut (Token: RNS-2026):\n" + url);
+      document.getElementById('share-reg-wa-btn').href = "https://wa.me/?text=" + text;
+    }
+
+    function toggleSpouseField(show) {
+      document.getElementById('spouse-wa-wrap').classList.toggle('hidden', !show);
+    }
+
+    function addChildRow() {
+      const container = document.getElementById('children-container');
+      const div = document.createElement('div');
+      div.className = 'child-row bg-white p-3.5 rounded-xl border border-borderline grid grid-cols-1 sm:grid-cols-4 gap-2 relative';
+      div.innerHTML = `
+        <input type="text" placeholder="Nama Anak" class="c-nama px-2.5 py-2 rounded-lg border border-borderline text-xs" required />
+        <input type="date" class="c-tgl px-2.5 py-2 rounded-lg border border-borderline text-xs" />
+        <select class="c-jk px-2.5 py-2 rounded-lg border border-borderline bg-white text-xs">
+          <option value="L">Laki-laki</option><option value="P">Perempuan</option>
+        </select>
+        <div class="flex gap-1">
+          <input type="text" placeholder="Sekolah / Jenjang" class="c-jenjang flex-1 px-2.5 py-2 rounded-lg border border-borderline text-xs" />
+          <button type="button" onclick="this.closest(\'.child-row\').remove()" class="px-2 text-red-600 font-bold text-xs">✕</button>
+        </div>
+      `;
+      container.appendChild(div);
+    }
+
+    function openModalPremise() {
+      document.getElementById('modal-add-premise').classList.remove('hidden');
+    }
+
+    async function handleAddPremise(e) {
+      e.preventDefault();
+      const [kat, sub] = document.getElementById('new-prem-kat').value.split('|');
+      showLoader(true);
+      try {
+        const res = await apiPost('add_premise', {
+          id_zona: document.getElementById('new-prem-zona').value,
+          kategori_utama: kat,
+          sub_kategori: sub,
+          nama_premis: document.getElementById('new-prem-nama').value,
+          dibuat_oleh: 'STAFF'
+        });
+        if (!res.success) return showToast(res.error, true);
+        showToast('Premis baru ditambahkan!');
+        document.getElementById('modal-add-premise').classList.add('hidden');
+        localStorage.removeItem('rns_init_cache');
+        await initApp();
+      } finally { showLoader(false); }
+    }
+
+    async function handleRegisterSubmit(e) {
+      e.preventDefault();
+      const children = Array.from(document.querySelectorAll('.child-row')).map((row) => ({
+        nama_anak: row.querySelector('.c-nama').value,
+        tgl_lahir: row.querySelector('.c-tgl').value,
+        jenis_kelamin: row.querySelector('.c-jk').value,
+        jenjang_pendidikan: row.querySelector('.c-jenjang').value
+      }));
+
+      showLoader(true);
+      try {
+        const res = await apiPost('register_staff', {
+          registration_token: document.getElementById('reg-token').value,
+          nama_lengkap: document.getElementById('reg-nama').value,
+          tanpa_hp: document.getElementById('reg-tanpa-hp').checked,
+          no_wa: document.getElementById('reg-wa').value,
+          pin: document.getElementById('reg-pin').value,
+          jabatan: document.getElementById('reg-jabatan').value,
+          id_premis: document.getElementById('reg-premis').value,
+          no_kk: document.getElementById('reg-kk').value,
+          peran_keluarga: document.getElementById('reg-peran').value,
+          no_wa_pasangan: document.getElementById('reg-wa-pasangan').value,
+          anak: children
+        });
+        if (!res.success) return showToast(res.error, true);
+        document.getElementById('reg-wa-confirm-link').href = res.data.admin_wa_url;
+        document.getElementById('modal-reg-success').classList.remove('hidden');
+        e.target.reset();
+        document.getElementById('children-container').innerHTML = '';
+      } finally { showLoader(false); }
+    }
+
+    // =========================================================================
+    // PORTAL STAFF (LOGIN, ABSEN SELFIE+GPS, SLIP GAJI, KELUARGA)
+    // =========================================================================
+    function checkStaffSession() {
+      const loggedIn = !!STATE.staffSession;
+      document.getElementById('portal-login-box').classList.toggle('hidden', loggedIn);
+      document.getElementById('portal-dashboard').classList.toggle('hidden', !loggedIn);
+      if (loggedIn) loadStaffDashboard();
+    }
+
+    async function handleStaffLogin(e) {
+      e.preventDefault();
+      showLoader(true);
+      try {
+        const res = await apiPost('login_staff', {
+          no_wa: document.getElementById('login-wa').value,
+          pin: document.getElementById('login-pin').value
+        });
+        if (!res.success) return showToast(res.error, true);
+        STATE.staffSession = res.data;
+        localStorage.setItem('rns_staff_session', JSON.stringify(res.data));
+        checkStaffSession();
+      } finally { showLoader(false); }
+    }
+
+    function logoutStaff() {
+      STATE.staffSession = null;
+      localStorage.removeItem('rns_staff_session');
+      if (STATE.mediaStream) STATE.mediaStream.getTracks().forEach((t) => t.stop());
+      checkStaffSession();
+    }
+
+    async function loadStaffDashboard() {
+      showLoader(true);
+      try {
+        const idStaff = STATE.staffSession.id_staff;
+        const res = await apiGet('get_staff_dashboard', { id_staff: idStaff });
+        if (!res.success) return showToast(res.error || 'Gagal memuat data staff.', true);
+
+        const { staff, family, children, premise, payslips, attendance } = res.data;
+        document.getElementById('staff-greet-name').textContent = "Assalamu'alaikum, " + staff.nama_lengkap;
+        document.getElementById('staff-greet-premise').textContent = (premise ? premise.nama_premis : '-') + ' • ' + (staff.jabatan || 'Staff');
+        document.getElementById('edit-nama').value = staff.nama_lengkap || '';
+        document.getElementById('edit-jabatan').value = staff.jabatan || '';
+        document.getElementById('fam-id-badge').textContent = 'ID Keluarga: ' + (family ? family.id_keluarga : staff.id_keluarga);
+        document.getElementById('fam-children-list').innerHTML = children.length
+          ? children.map((c) => `<div class="p-3.5 rounded-xl bg-surface-low border border-borderline"><p class="font-bold text-primary text-sm">${c.nama_anak}</p><p class="text-xs text-on-muted">${c.tgl_lahir || '-'} • ${c.jenjang_pendidikan || '-'}</p></div>`).join('')
+          : '<p class="text-sm text-on-muted">Belum ada data anak tercatat.</p>';
+
+        document.getElementById('payslip-list').innerHTML = payslips.length
+          ? payslips.map((s) => `
+            <div class="bg-white rounded-2xl p-5 border border-borderline space-y-3">
+              <div class="flex justify-between items-center border-b border-dashed border-borderline pb-2">
+                <span class="font-bold text-primary">${s.periode}</span>
+                <span class="text-xs text-on-muted">${s.id_slip}</span>
+              </div>
+              <div class="space-y-1.5 text-sm tabular-nums">
+                <div class="flex justify-between"><span>Gaji Pokok</span><span>${formatRp(s.gaji_pokok)}</span></div>
+                <div class="flex justify-between"><span>Tunjangan</span><span>${formatRp(s.tunjangan)}</span></div>
+                <div class="flex justify-between"><span>Tambahan</span><span>${formatRp(s.tambahan)}</span></div>
+                <div class="flex justify-between text-red-700"><span>Potongan</span><span>- ${formatRp(s.potongan)}</span></div>
+              </div>
+              <div class="bg-cream-soft border border-secondary-gold/40 rounded-xl p-3 flex justify-between items-center">
+                <span class="text-xs font-bold text-secondary">Total Gaji Bersih</span>
+                <span class="text-lg font-bold text-primary tabular-nums">${formatRp(s.total_bersih)}</span>
+              </div>
+            </div>
+          `).join('')
+          : '<div class="col-span-2 bg-white rounded-2xl p-5 border border-borderline text-sm text-on-muted">Belum ada slip gaji yang diterbitkan admin.</div>';
+
+        document.getElementById('absen-history-list').innerHTML = attendance.length
+          ? attendance.slice(0, 8).map((a) => `
+            <div class="p-3 rounded-xl bg-surface-low border border-borderline flex items-center justify-between gap-2">
+              <div>
+                <span class="font-bold text-primary text-xs">${a.tipe_absen} • ${a.tanggal} ${a.waktu}</span>
+                <p class="text-[11px] text-on-muted">GPS: ${a.latitude}, ${a.longitude}</p>
+              </div>
+              ${a.foto_url ? `<a href="${a.foto_url}" target="_blank" class="text-xs font-bold text-secondary underline">Lihat Foto</a>` : ''}
+            </div>
+          `).join('')
+          : '<p class="text-xs text-on-muted">Belum ada riwayat absensi.</p>';
+      } finally { showLoader(false); }
+    }
+
+    function switchStaffTab(tab) {
+      ['absen', 'slip', 'keluarga', 'profil'].forEach((t) => {
+        document.getElementById('stab-' + t).classList.toggle('hidden', t !== tab);
+      });
+      document.querySelectorAll('.stab-btn').forEach((btn) => {
+        const active = btn.dataset.stab === tab;
+        btn.className = 'stab-btn px-4 py-2 rounded-lg text-sm font-bold ' + (active ? 'bg-primary-container text-white' : 'text-on-muted bg-white border border-borderline');
+      });
+    }
+
+    function setAbsenType(type) {
+      STATE.absenType = type;
+      document.getElementById('btn-type-masuk').className = 'py-2.5 rounded-xl text-xs font-bold ' + (type === 'MASUK' ? 'bg-primary-container text-white' : 'bg-surface-low text-on-muted border border-borderline');
+      document.getElementById('btn-type-pulang').className = 'py-2.5 rounded-xl text-xs font-bold ' + (type === 'PULANG' ? 'bg-primary-container text-white' : 'bg-surface-low text-on-muted border border-borderline');
+    }
+
+    async function startCamera() {
+      try {
+        STATE.mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        const vid = document.getElementById('absen-video');
+        vid.srcObject = STATE.mediaStream;
+        vid.classList.remove('hidden');
+        document.getElementById('absen-preview').classList.add('hidden');
+      } catch (err) {
+        showToast('Izin kamera ditolak atau tidak tersedia.', true);
+      }
+    }
+
+    function captureSelfie() {
+      const vid = document.getElementById('absen-video');
+      const canvas = document.getElementById('absen-canvas');
+      if (!vid.srcObject) return showToast('Aktifkan kamera terlebih dahulu.', true);
+      canvas.width = 480;
+      canvas.height = 360;
+      canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+      STATE.capturedSelfie = canvas.toDataURL('image/jpeg', 0.75);
+      const prev = document.getElementById('absen-preview');
+      prev.src = STATE.capturedSelfie;
+      prev.classList.remove('hidden');
+      vid.classList.add('hidden');
+    }
+
+    function detectGPS() {
+      if (!navigator.geolocation) return showToast('Browser tidak mendukung GPS.', true);
+      document.getElementById('gps-status').textContent = 'Mencari koordinat...';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          STATE.gps = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy) };
+          document.getElementById('gps-status').textContent = `${STATE.gps.lat}, ${STATE.gps.lng} (±${STATE.gps.acc}m)`;
+        },
+        () => showToast('Gagal mendeteksi lokasi GPS. Pastikan izin lokasi aktif.', true),
+        { enableHighAccuracy: true }
+      );
+    }
+
+    async function submitAttendance() {
+      if (!STATE.capturedSelfie) return showToast('Ambil foto selfie terlebih dahulu.', true);
+      if (!STATE.gps.lat) return showToast('Deteksi lokasi GPS terlebih dahulu.', true);
+      showLoader(true);
+      try {
+        const res = await apiPost('submit_attendance', {
+          id_staff: STATE.staffSession.id_staff,
+          id_premis: STATE.staffSession.id_premis,
+          tipe_absen: STATE.absenType,
+          latitude: STATE.gps.lat,
+          longitude: STATE.gps.lng,
+          akurasi_meter: STATE.gps.acc,
+          foto_base64: STATE.capturedSelfie,
+          catatan: document.getElementById('absen-catatan').value
+        });
+        if (!res.success) return showToast(res.error, true);
+        showToast(res.message);
+        await loadStaffDashboard();
+      } finally { showLoader(false); }
+    }
+
+    async function handleUpdateProfile(e) {
+      e.preventDefault();
+      showLoader(true);
+      try {
+        const res = await apiPost('update_staff_profile', {
+          id_staff: STATE.staffSession.id_staff,
+          nama_lengkap: document.getElementById('edit-nama').value,
+          jabatan: document.getElementById('edit-jabatan').value
+        });
+        showToast(res.message || res.error, !res.success);
+      } finally { showLoader(false); }
+    }
+
+    function showKuliahList() {
+      document.getElementById('kuliah-list-wrap').classList.remove('hidden');
+      document.getElementById('kuliah-form-wrap').classList.add('hidden');
+      renderPublicKuliahList();
+    }
+
+    function renderPublicKuliahList() {
+      const box = document.getElementById('public-kuliah-list');
+      if (!box) return;
+      if (!STATE.kuliahSessions.length) {
+        box.innerHTML = '<div class="bg-white rounded-2xl p-6 border border-borderline text-sm text-on-muted text-center">Belum ada sesi program kuliah aktif. Admin dapat membuat sesi baru dari Dashboard Admin.</div>';
+        return;
+      }
+      box.innerHTML = STATE.kuliahSessions.map((k) => {
+        const link = window.location.origin + window.location.pathname + '?kuliah=' + k.id_kuliah;
+        const waText = encodeURIComponent("Silakan isi daftar hadir Program Kuliah: " + k.judul_kuliah + "\n" + link);
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-borderline shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-primary text-base">${k.judul_kuliah}</h3>
+              <p class="text-xs text-on-muted mt-0.5">${k.pemateri || '-'} • ${k.tanggal || '-'} (${k.jam || '-'} WIB)</p>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button onclick="openKuliahForm('${k.id_kuliah}')" class="px-3.5 py-2 rounded-xl bg-primary-container text-white text-xs font-bold">Isi Kehadiran</button>
+              <a href="https://wa.me/?text=${waText}" target="_blank" class="px-3.5 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold">Bagikan WA</a>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     async function openKuliahForm(idKuliah) {
