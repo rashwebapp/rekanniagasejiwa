@@ -863,6 +863,27 @@
       return await res.json();
     }
 
+    function formatIndoDate(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return '-';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+      const dt = new Date(s);
+      if (isNaN(dt.getTime())) return s;
+      return dt.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function formatWibTime(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return '-';
+      if (/^\d{1,2}:\d{2}/.test(s) && !s.includes('T')) return s.slice(0, 5);
+      const dt = new Date(s);
+      if (isNaN(dt.getTime())) return s;
+      return dt.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
+    }
+
     function formatRp(num) {
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
     }
@@ -876,7 +897,12 @@
       });
       if (viewName === 'portal') checkStaffSession();
       if (viewName === 'admin' && !document.getElementById('admin-workspace').classList.contains('hidden')) loadAdminOverview(true);
-      if (viewName === 'kuliah' && !new URLSearchParams(window.location.search).get('kuliah')) showKuliahList();
+      if (viewName === 'kuliah' && !new URLSearchParams(window.location.search).get('kuliah')) {
+        showKuliahList();
+        apiGet('get_init_data').then((r) => r.success ? ensureStaffDirectoryFallback(r.data) : null).then((d) => {
+          if (d) { STATE.kuliahSessions = d.kuliah_sessions || []; renderPublicKuliahList(); }
+        }).catch(() => {});
+      }
     }
 
     // =========================================================================
@@ -1152,6 +1178,7 @@
       const loggedIn = !!STATE.staffSession;
       document.getElementById('portal-login-box').classList.toggle('hidden', loggedIn);
       document.getElementById('portal-dashboard').classList.toggle('hidden', !loggedIn);
+      applyPayrollVisibility();
       if (loggedIn) loadStaffDashboard();
     }
 
@@ -1259,6 +1286,7 @@
         const active = btn.dataset.stab === tab;
         btn.className = 'stab-btn px-4 py-2 rounded-lg text-sm font-bold ' + (active ? 'bg-primary-container text-white' : 'text-on-muted bg-white border border-borderline');
       });
+      applyPayrollVisibility();
     }
 
     function setAbsenType(type) {
@@ -1362,7 +1390,7 @@
           <div class="bg-white rounded-2xl p-4 border border-borderline shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 class="font-bold text-primary text-base">${k.judul_kuliah}</h3>
-              <p class="text-xs text-on-muted mt-0.5">${k.pemateri || '-'} • ${k.tanggal || '-'} (${k.jam || '-'} WIB)</p>
+              <p class="text-xs text-on-muted mt-0.5">${k.pemateri || '-'} • ${formatIndoDate(k.tanggal)} (${formatWibTime(k.jam)} WIB)</p>
             </div>
             <div class="flex gap-2 shrink-0">
               <button onclick="openKuliahForm('${k.id_kuliah}')" class="px-3.5 py-2 rounded-xl bg-primary-container text-white text-xs font-bold">Isi Kehadiran</button>
@@ -1385,7 +1413,7 @@
       }
       const s = res.data.session;
       document.getElementById('kuliah-title').textContent = s.judul_kuliah;
-      document.getElementById('kuliah-meta').textContent = `${s.pemateri} • ${s.tanggal} (${s.jam} WIB)`;
+      document.getElementById('kuliah-meta').textContent = `${s.pemateri} • ${formatIndoDate(s.tanggal)} (${formatWibTime(s.jam)} WIB)`;
     }
 
     async function handleKuliahSubmit(e) {
@@ -1441,7 +1469,9 @@
         STATE.staffDirectory = (res.data.staff || [])
           .filter((s) => s.status !== 'DITOLAK')
           .map((s) => ({ id_staff: s.id_staff, id_premis: s.id_premis, nama_lengkap: s.nama_lengkap, jabatan: s.jabatan, status: s.status }));
+        STATE.kuliahSessions = (res.data.kuliah_sessions || []).filter((k) => k.status === 'AKTIF');
         renderHomePremises();
+        renderPublicKuliahList();
         const { staff, families, children, premises, kuliah_sessions, kuliah_attendance, settings } = res.data;
 
         document.getElementById('kpi-aktif').textContent = staff.filter((s) => s.status === 'AKTIF').length;
@@ -1471,7 +1501,7 @@
             <div class="p-3.5 rounded-xl bg-surface-low border border-borderline flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <p class="font-bold text-primary">${k.judul_kuliah}</p>
-                <p class="text-xs text-on-muted">${k.pemateri} • ${k.tanggal} ${k.jam}</p>
+                <p class="text-xs text-on-muted">${k.pemateri} • ${formatIndoDate(k.tanggal)} (${formatWibTime(k.jam)} WIB)</p>
                 <p class="text-xs font-bold text-secondary mt-1">Total: ${list.length} | Hadir: ${hadir} (${pct}%)</p>
               </div>
               <button onclick="navigator.clipboard.writeText('${link}'); showToast('Link disalin!')" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-xs font-bold">Salin Link</button>
@@ -1562,6 +1592,7 @@
         document.getElementById('kuliah-generated-url').value = res.data.form_url;
         document.getElementById('kuliah-wa-share-btn').href = res.data.share_wa_url;
         document.getElementById('kuliah-share-result').classList.remove('hidden');
+        localStorage.removeItem('rns_init_cache_v3');
         await loadAdminOverview();
       } finally { showLoader(false); }
     }
@@ -1600,11 +1631,20 @@
 
     function applyPayrollVisibility() {
       const btnSlip = document.getElementById('btn-stab-slip');
+      const tabSlip = document.getElementById('stab-slip');
       const admPay = document.getElementById('admin-payroll-panel');
       const admCol = document.getElementById('admin-staff-list-col');
-      if (btnSlip) btnSlip.classList.toggle('hidden', !STATE.enablePayroll);
-      if (admPay) admPay.classList.toggle('hidden', !STATE.enablePayroll);
-      if (admCol) admCol.className = (STATE.enablePayroll ? 'lg:col-span-7' : 'lg:col-span-12') + ' bg-white rounded-2xl p-5 border border-borderline overflow-x-auto';
+      const show = !!STATE.enablePayroll;
+      if (btnSlip) {
+        btnSlip.classList.toggle('hidden', !show);
+        btnSlip.style.display = show ? '' : 'none';
+      }
+      if (tabSlip && !show) tabSlip.classList.add('hidden');
+      if (admPay) {
+        admPay.classList.toggle('hidden', !show);
+        admPay.style.display = show ? '' : 'none';
+      }
+      if (admCol) admCol.className = (show ? 'lg:col-span-7' : 'lg:col-span-12') + ' bg-white rounded-2xl p-5 border border-borderline overflow-x-auto';
     }
 
     function toggleTheme() {
@@ -1622,11 +1662,14 @@
     }
 
     async function ensureStaffDirectoryFallback(data) {
-      if (Array.isArray(data.staff_directory)) return data;
+      if (Array.isArray(data.staff_directory) && Array.isArray(data.kuliah_sessions)) return data;
       try {
         const adm = await apiGet('admin_overview');
         if (adm.success && adm.data && Array.isArray(adm.data.staff)) {
-          data.staff_directory = adm.data.staff
+          if (!Array.isArray(data.kuliah_sessions) && Array.isArray(adm.data.kuliah_sessions)) {
+            data.kuliah_sessions = adm.data.kuliah_sessions.filter((k) => k.status === 'AKTIF');
+          }
+          if (!Array.isArray(data.staff_directory)) data.staff_directory = adm.data.staff
             .filter((s) => s.status !== 'DITOLAK')
             .map((s) => ({ id_staff: s.id_staff, id_premis: s.id_premis, nama_lengkap: s.nama_lengkap, jabatan: s.jabatan, status: s.status }));
         }
