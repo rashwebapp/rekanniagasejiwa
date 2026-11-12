@@ -799,7 +799,7 @@
       if (isDaftar) switchView('register');
 
       // 1. Tampilkan cache lokal secara instan (<50ms) tanpa memblokir layar
-      const cachedRaw = localStorage.getItem('rns_init_cache');
+      const cachedRaw = localStorage.getItem('rns_init_cache_v2');
       if (cachedRaw) {
         try {
           applyInitData(JSON.parse(cachedRaw));
@@ -812,7 +812,7 @@
       try {
         const res = await apiGet('get_init_data');
         if (res.success) {
-          localStorage.setItem('rns_init_cache', JSON.stringify(res.data));
+          localStorage.setItem('rns_init_cache_v2', JSON.stringify(res.data));
           applyInitData(res.data);
         }
         if (kuliahId) {
@@ -869,7 +869,7 @@
       const zoneObj = STATE.zones.find((z) => z.id_zona === STATE.selectedHomeZone);
       const kota = zoneObj ? zoneObj.kota : '';
       box.innerHTML = filtered.map((p) => {
-        const count = STATE.staffDirectory.filter((s) => s.id_premis === p.id_premis).length;
+        const count = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(p.id_premis || '').trim()).length;
         return `
           <button type="button" onclick="openPremiseStaffModal('${p.id_premis}')" class="text-left w-full bg-white rounded-2xl p-4 border border-borderline shadow-xs flex items-center justify-between gap-3 hover:border-secondary-gold hover:bg-cream-light/50 transition group">
             <div class="flex items-center gap-3.5">
@@ -893,7 +893,7 @@
       const zone = STATE.zones.find((z) => z.id_zona === prem.id_zona);
       document.getElementById('modal-prem-title').textContent = prem.nama_premis;
       document.getElementById('modal-prem-sub').textContent = prem.sub_kategori + (zone ? ' • ' + zone.kota : '');
-      const staffList = STATE.staffDirectory.filter((s) => s.id_premis === idPremis);
+      const staffList = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(idPremis || '').trim());
       const body = document.getElementById('modal-prem-staff-list');
       body.innerHTML = staffList.length
         ? staffList.map((s) => `
@@ -994,7 +994,7 @@
         if (!res.success) return showToast(res.error, true);
         showToast('Premis baru ditambahkan!');
         document.getElementById('modal-add-premise').classList.add('hidden');
-        localStorage.removeItem('rns_init_cache');
+        localStorage.removeItem('rns_init_cache_v2');
         await initApp();
       } finally { showLoader(false); }
     }
