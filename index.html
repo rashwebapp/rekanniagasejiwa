@@ -11,6 +11,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -37,6 +38,15 @@
     };
   </script>
   <style>
+    html.dark body { background-color: #0f1610; color: #e8ece6; }
+    html.dark header { background-color: rgba(18, 28, 20, 0.95) !important; border-color: #273829 !important; }
+    html.dark .bg-white { background-color: #172319 !important; }
+    html.dark .bg-surface-low { background-color: #1f2e22 !important; }
+    html.dark .bg-cream-soft, html.dark .bg-cream-light { background-color: #1d2b1e !important; }
+    html.dark .border-borderline { border-color: #2e4030 !important; }
+    html.dark .text-primary, html.dark .text-primary-container { color: #9dd58a !important; }
+    html.dark .text-on-muted, html.dark .text-on-surface { color: #c8d2c5 !important; }
+    html.dark input, html.dark select, html.dark textarea { background-color: #111b13 !important; color: #f1f5f9 !important; border-color: #314434 !important; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #faf9f5; color: #1b1c1a; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
     .loader-spin { border: 3px solid #e7e2d5; border-top-color: #1b4d12; border-radius: 9999px; width: 22px; height: 22px; animation: spin 0.7s linear infinite; }
@@ -87,6 +97,9 @@
       </nav>
 
       <div class="flex items-center gap-2">
+        <button id="btn-theme-toggle" type="button" onclick="toggleTheme()" title="Mode Gelap / Terang" class="p-2 rounded-lg border border-borderline bg-white text-primary hover:bg-cream-soft transition">
+          <span id="theme-icon" class="material-symbols-outlined text-lg">dark_mode</span>
+        </button>
         <button onclick="switchView('register')" class="hidden sm:inline-flex px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold border border-secondary-gold text-secondary hover:bg-cream-soft transition">Daftar Staff</button>
         <button onclick="switchView('portal')" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary-container text-white hover:bg-primary transition shadow-sm">
           <span class="material-symbols-outlined text-base">login</span>
@@ -135,6 +148,25 @@
         </div>
       </div>
 
+      <!-- Slideshow Video Informasi -->
+      <div id="home-video-section" class="bg-white rounded-2xl p-5 border border-borderline shadow-xs space-y-4">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-secondary-gold">Galeri Multimedia</span>
+            <h2 class="font-serif text-2xl font-bold text-primary">Video Informasi</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="prevVideoSlide()" class="px-3 py-1.5 rounded-lg bg-surface-low border border-borderline text-xs font-bold text-primary">&larr;</button>
+            <span id="video-slide-counter" class="text-xs font-bold text-on-muted">1 / 1</span>
+            <button type="button" onclick="nextVideoSlide()" class="px-3 py-1.5 rounded-lg bg-surface-low border border-borderline text-xs font-bold text-primary">&rarr;</button>
+          </div>
+        </div>
+        <div id="home-video-player" class="rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center text-white/70 text-sm">
+          Belum ada video informasi. Admin dapat menambahkan link YouTube atau Google Drive.
+        </div>
+        <p id="home-video-title" class="font-bold text-primary text-sm"></p>
+      </div>
+
       <!-- Papan Pengumuman -->
       <div>
         <div class="flex items-center justify-between gap-4 mb-4">
@@ -160,6 +192,7 @@
             <h2 class="font-serif text-2xl font-bold text-primary">Premis Komersial Kami</h2>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="forceSyncHome()" class="px-3.5 py-2 rounded-xl border border-secondary-gold bg-cream-light text-secondary text-xs font-bold hover:bg-cream-soft">Sinkronkan</button>
             <input id="home-premise-search" oninput="renderHomePremises()" type="text" placeholder="Cari premis UMKM..." class="px-3.5 py-2 rounded-xl border border-borderline bg-white text-sm focus:outline-none focus:border-primary-container" />
           </div>
         </div>
@@ -220,6 +253,8 @@
               <input id="reg-pin" required type="password" minlength="4" maxlength="6" pattern="[0-9]{4,6}" placeholder="Contoh: 1234" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm" />
             </div>
             <div>
+              <label class="block text-xs font-semibold text-on-muted mb-1">Tanggal Lahir (untuk e-Card Ulang Tahun)</label>
+              <input id="reg-tgl-lahir" type="date" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline focus:outline-none focus:border-primary-container text-sm mb-3" />
               <label class="block text-xs font-semibold text-on-muted mb-1">Jabatan *</label>
               <select id="reg-jabatan" required class="w-full px-3.5 py-2.5 rounded-xl border border-borderline bg-white focus:outline-none focus:border-primary-container text-sm">
                 <option value="Staff">Staff</option>
@@ -326,6 +361,14 @@
 
       <!-- Staff Logged-in Workspace -->
       <div id="portal-dashboard" class="hidden max-w-4xl mx-auto space-y-6">
+        <!-- Birthday e-Card Alert -->
+        <div id="staff-birthday-banner" class="hidden bg-gradient-to-r from-cream-soft to-cream-light border border-secondary-gold rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div class="text-sm">
+            <p class="font-bold text-primary">Selamat Ulang Tahun! Ada e-Card spesial untuk Anda</p>
+            <p class="text-xs text-on-muted">Klik tombol di samping untuk melihat &amp; menyimpan e-Card.</p>
+          </div>
+          <button type="button" onclick="openBirthdayCard(STATE.staffSession.nama_lengkap, document.getElementById('staff-greet-premise').textContent)" class="px-4 py-2 rounded-xl bg-secondary-gold text-white text-xs font-bold shrink-0">Lihat e-Card</button>
+        </div>
         <!-- Greeting Banner -->
         <div class="no-print bg-primary-container text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div>
@@ -339,7 +382,7 @@
         <!-- Tabs -->
         <div class="no-print flex gap-2 overflow-x-auto border-b border-borderline pb-2">
           <button onclick="switchStaffTab('absen')" data-stab="absen" class="stab-btn px-4 py-2 rounded-lg text-sm font-bold bg-primary-container text-white">Absen Selfie &amp; GPS</button>
-          <button onclick="switchStaffTab('slip')" data-stab="slip" class="stab-btn px-4 py-2 rounded-lg text-sm font-semibold text-on-muted bg-white border border-borderline">Slip Gaji</button>
+          <button id="btn-stab-slip" onclick="switchStaffTab('slip')" data-stab="slip" class="hidden stab-btn px-4 py-2 rounded-lg text-sm font-semibold text-on-muted bg-white border border-borderline">Slip Gaji</button>
           <button onclick="switchStaffTab('keluarga')" data-stab="keluarga" class="stab-btn px-4 py-2 rounded-lg text-sm font-semibold text-on-muted bg-white border border-borderline">Keluarga &amp; Anak</button>
           <button onclick="switchStaffTab('profil')" data-stab="profil" class="stab-btn px-4 py-2 rounded-lg text-sm font-semibold text-on-muted bg-white border border-borderline">Edit Profil</button>
         </div>
@@ -410,7 +453,19 @@
             </div>
             <div>
               <label class="block text-xs font-semibold text-on-muted mb-1">Jabatan</label>
-              <input id="edit-jabatan" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline text-sm" />
+              <select id="edit-jabatan" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline bg-white text-sm">
+                <option value="Staff">Staff</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Manager">Manager</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-on-muted mb-1">Tanggal Lahir (untuk e-Card Ulang Tahun)</label>
+              <input id="edit-tgl-lahir" type="date" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-on-muted mb-1">Alamat / Domisili</label>
+              <input id="edit-alamat" type="text" placeholder="Alamat tempat tinggal" class="w-full px-3.5 py-2.5 rounded-xl border border-borderline text-sm" />
             </div>
             <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary-container text-white text-sm font-bold">Simpan Perubahan</button>
           </form>
@@ -504,7 +559,7 @@
 
         <!-- Admin Tab 1: Staff & Slip Gaji -->
         <div id="atab-staff" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-borderline overflow-x-auto">
+          <div id="admin-staff-list-col" class="lg:col-span-12 bg-white rounded-2xl p-5 border border-borderline overflow-x-auto">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <h3 class="font-bold text-primary">Daftar Anggota Terdaftar &amp; Persetujuan</h3>
               <div class="flex flex-wrap gap-1.5">
@@ -521,7 +576,7 @@
               <tbody id="admin-staff-tbody" class="divide-y divide-borderline"></tbody>
             </table>
           </div>
-          <div class="lg:col-span-5 bg-white rounded-2xl p-5 border border-borderline space-y-4">
+          <div id="admin-payroll-panel" class="hidden lg:col-span-5 bg-white rounded-2xl p-5 border border-borderline space-y-4">
             <h3 class="font-bold text-primary">Input &amp; Hitung Slip Gaji</h3>
             <form onsubmit="handleAdminSavePayslip(event)" class="space-y-3 text-sm">
               <select id="pay-staff" required class="w-full px-3 py-2 rounded-xl border border-borderline bg-white"></select>
@@ -539,6 +594,20 @@
               <button type="submit" class="w-full py-2.5 rounded-xl bg-primary-container text-white font-bold text-sm">Simpan &amp; Terbitkan Slip</button>
             </form>
           </div>
+        </div>
+
+        <!-- Rekap Premis & Karyawan + Ulang Tahun Bulan Ini -->
+        <div id="admin-premis-summary-wrap" class="bg-white rounded-2xl p-5 border border-borderline overflow-x-auto space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-bold text-primary">Tabel Informasi Jumlah Premis &amp; Detail Karyawan</h3>
+            <div id="admin-birthday-alerts" class="flex flex-wrap gap-2"></div>
+          </div>
+          <table class="w-full text-left text-xs">
+            <thead class="bg-surface-low text-on-muted uppercase">
+              <tr><th class="p-2.5">Nama Premis</th><th class="p-2.5">Kategori &amp; Zona</th><th class="p-2.5">Jumlah</th><th class="p-2.5">Daftar Nama Karyawan</th></tr>
+            </thead>
+            <tbody id="admin-premis-summary-tbody" class="divide-y divide-borderline"></tbody>
+          </table>
         </div>
 
         <!-- Admin Tab 2: Program Kuliah -->
@@ -570,7 +639,15 @@
         </div>
 
         <!-- Admin Tab 3: Pengumuman & Pengaturan -->
-        <div id="atab-announcements" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="atab-announcements" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-2xl p-5 border border-borderline space-y-3">
+            <h3 class="font-bold text-primary">Tambah Video Informasi (YouTube / Drive)</h3>
+            <form onsubmit="handleAdminSaveVideo(event)" class="space-y-3 text-sm">
+              <input id="vid-judul" required type="text" placeholder="Judul Video" class="w-full px-3 py-2 rounded-xl border border-borderline" />
+              <input id="vid-url" required type="url" placeholder="Link YouTube atau Google Drive" class="w-full px-3 py-2 rounded-xl border border-borderline" />
+              <button type="submit" class="w-full py-2.5 rounded-xl bg-primary-container text-white font-bold">Tambah ke Slideshow</button>
+            </form>
+          </div>
           <div class="bg-white rounded-2xl p-5 border border-borderline space-y-3">
             <h3 class="font-bold text-primary">Terbitkan Pengumuman Beranda</h3>
             <form onsubmit="handleAdminSaveAnnouncement(event)" class="space-y-3 text-sm">
@@ -649,6 +726,32 @@
     </div>
   </div>
 
+
+  <!-- MODAL E-CARD ULANG TAHUN OTOMATIS -->
+  <div id="modal-birthday-ecard" class="fixed inset-0 z-[120] hidden bg-black/55 flex items-center justify-center p-4">
+    <div class="bg-gradient-to-br from-primary-container via-[#235e18] to-[#13380d] text-white rounded-3xl max-w-md w-full p-7 text-center space-y-4 border-2 border-secondary-gold shadow-2xl relative">
+      <button type="button" onclick="document.getElementById('modal-birthday-ecard').classList.add('hidden')" class="no-print absolute top-4 right-4 text-white/70 hover:text-white font-bold">✕</button>
+      <span class="inline-block px-3 py-1 rounded-full bg-secondary-gold text-white text-[11px] font-bold uppercase tracking-widest">Barakallahu Fii Umrik</span>
+      <h3 class="font-serif text-3xl font-bold text-secondary-container">Selamat Ulang Tahun!</h3>
+      <p id="ecard-name" class="font-serif text-xl font-bold text-white"></p>
+      <p id="ecard-premise" class="text-xs text-white/80"></p>
+      <p class="text-sm text-white/90 leading-relaxed bg-white/10 rounded-2xl p-4">Semoga senantiasa diberkahi umur, kesehatan, kelancaran rezeki, dan keberkahan dalam berkhidmat bersama keluarga besar <b>Rekan Niaga Sejiwa</b>.</p>
+      <button type="button" onclick="window.print()" class="no-print px-5 py-2.5 rounded-xl bg-secondary-gold text-white text-xs font-bold">Simpan / Cetak e-Card</button>
+    </div>
+  </div>
+
+  <!-- IKLAN PROMOSI MENGAMBANG (KANAN BAWAH) -->
+  <div id="floating-promo-ad" class="no-print fixed bottom-4 right-4 z-40 max-w-xs bg-white border-2 border-secondary-gold rounded-2xl p-3.5 shadow-xl flex items-start gap-3">
+    <div class="w-9 h-9 rounded-xl bg-primary-container text-white flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-lg">web</span>
+    </div>
+    <div class="text-xs space-y-1.5">
+      <p class="font-bold text-primary leading-snug">Ingin membuat web / landing page?</p>
+      <a href="https://wa.me/6285174273313?text=Halo%20Admin%2C%20saya%20tertarik%20membuat%20web%20/%20landing%20page." target="_blank" class="inline-block px-3 py-1.5 rounded-lg bg-[#25D366] text-white font-bold">Hubungi Admin</a>
+    </div>
+    <button type="button" onclick="document.getElementById('floating-promo-ad').classList.add('hidden')" class="text-on-muted hover:text-primary font-bold text-xs">✕</button>
+  </div>
+
   <!-- FOOTER -->
   <footer class="no-print bg-primary-container text-white/90 text-xs py-5 px-4 text-center border-t-2 border-secondary-gold">
     Rekan Niaga Sejiwa • Portal Internal Staff, Keluarga, Absensi &amp; Slip Gaji
@@ -716,6 +819,9 @@
       announcements: [],
       kuliahSessions: [],
       staffDirectory: [],
+      videos: [],
+      videoIdx: 0,
+      enablePayroll: false,
       adminStaffFilter: 'ALL',
       selectedHomeZone: 'ZON-001',
       staffSession: JSON.parse(localStorage.getItem('rns_staff_session') || 'null'),
@@ -782,6 +888,10 @@
       STATE.announcements = data.announcements || [];
       STATE.kuliahSessions = data.kuliah_sessions || [];
       STATE.staffDirectory = data.staff_directory || [];
+      STATE.videos = data.videos || [];
+      STATE.enablePayroll = !!data.enable_payroll;
+      applyPayrollVisibility();
+      renderHomeVideoSlide();
       renderHomeAnnouncements();
       renderHomeZonePills();
       renderHomePremises();
@@ -799,7 +909,7 @@
       if (isDaftar) switchView('register');
 
       // 1. Tampilkan cache lokal secara instan (<50ms) tanpa memblokir layar
-      const cachedRaw = localStorage.getItem('rns_init_cache_v2');
+      const cachedRaw = localStorage.getItem('rns_init_cache_v3');
       if (cachedRaw) {
         try {
           applyInitData(JSON.parse(cachedRaw));
@@ -812,7 +922,7 @@
       try {
         const res = await apiGet('get_init_data');
         if (res.success) {
-          localStorage.setItem('rns_init_cache_v2', JSON.stringify(res.data));
+          localStorage.setItem('rns_init_cache_v3', JSON.stringify(res.data));
           applyInitData(res.data);
         }
         if (kuliahId) {
@@ -869,7 +979,7 @@
       const zoneObj = STATE.zones.find((z) => z.id_zona === STATE.selectedHomeZone);
       const kota = zoneObj ? zoneObj.kota : '';
       box.innerHTML = filtered.map((p) => {
-        const count = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(p.id_premis || '').trim()).length;
+        const count = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(p.id_premis || '').trim() || String(s.id_premis || '').trim().toLowerCase() === String(p.nama_premis || '').trim().toLowerCase()).length;
         return `
           <button type="button" onclick="openPremiseStaffModal('${p.id_premis}')" class="text-left w-full bg-white rounded-2xl p-4 border border-borderline shadow-xs flex items-center justify-between gap-3 hover:border-secondary-gold hover:bg-cream-light/50 transition group">
             <div class="flex items-center gap-3.5">
@@ -893,7 +1003,7 @@
       const zone = STATE.zones.find((z) => z.id_zona === prem.id_zona);
       document.getElementById('modal-prem-title').textContent = prem.nama_premis;
       document.getElementById('modal-prem-sub').textContent = prem.sub_kategori + (zone ? ' • ' + zone.kota : '');
-      const staffList = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(idPremis || '').trim());
+      const staffList = STATE.staffDirectory.filter((s) => String(s.id_premis || '').trim() === String(idPremis || '').trim() || String(s.id_premis || '').trim().toLowerCase() === String(prem.nama_premis || '').trim().toLowerCase());
       const body = document.getElementById('modal-prem-staff-list');
       body.innerHTML = staffList.length
         ? staffList.map((s) => `
@@ -994,7 +1104,7 @@
         if (!res.success) return showToast(res.error, true);
         showToast('Premis baru ditambahkan!');
         document.getElementById('modal-add-premise').classList.add('hidden');
-        localStorage.removeItem('rns_init_cache_v2');
+        localStorage.removeItem('rns_init_cache_v3');
         await initApp();
       } finally { showLoader(false); }
     }
@@ -1017,6 +1127,7 @@
           no_wa: document.getElementById('reg-wa').value,
           pin: document.getElementById('reg-pin').value,
           jabatan: document.getElementById('reg-jabatan').value,
+          tanggal_lahir: document.getElementById('reg-tgl-lahir').value,
           id_premis: document.getElementById('reg-premis').value,
           no_kk: document.getElementById('reg-kk').value,
           peran_keluarga: document.getElementById('reg-peran').value,
@@ -1092,7 +1203,11 @@
         document.getElementById('staff-greet-name').textContent = "Assalamu'alaikum, " + staff.nama_lengkap;
         document.getElementById('staff-greet-premise').textContent = (premise ? premise.nama_premis : '-') + ' • ' + (staff.jabatan || 'Staff');
         document.getElementById('edit-nama').value = staff.nama_lengkap || '';
-        document.getElementById('edit-jabatan').value = staff.jabatan || '';
+        document.getElementById('edit-jabatan').value = staff.jabatan || 'Staff';
+        document.getElementById('edit-tgl-lahir').value = String(staff.tanggal_lahir || '').slice(0, 10);
+        document.getElementById('edit-alamat').value = staff.alamat || '';
+        const bday = isBirthdayMatch_(staff.tanggal_lahir);
+        document.getElementById('staff-birthday-banner').classList.toggle('hidden', !bday.isToday);
         document.getElementById('fam-id-badge').textContent = 'ID Keluarga: ' + (family ? family.id_keluarga : staff.id_keluarga);
         document.getElementById('fam-children-list').innerHTML = children.length
           ? children.map((c) => `<div class="p-3.5 rounded-xl bg-surface-low border border-borderline"><p class="font-bold text-primary text-sm">${c.nama_anak}</p><p class="text-xs text-on-muted">${c.tgl_lahir || '-'} • ${c.jenjang_pendidikan || '-'}</p></div>`).join('')
@@ -1216,7 +1331,9 @@
         const res = await apiPost('update_staff_profile', {
           id_staff: STATE.staffSession.id_staff,
           nama_lengkap: document.getElementById('edit-nama').value,
-          jabatan: document.getElementById('edit-jabatan').value
+          jabatan: document.getElementById('edit-jabatan').value,
+          tanggal_lahir: document.getElementById('edit-tgl-lahir').value,
+          alamat: document.getElementById('edit-alamat').value
         });
         showToast(res.message || res.error, !res.success);
       } finally { showLoader(false); }
@@ -1335,6 +1452,7 @@
         document.getElementById('set-wa').value = admWa;
 
         renderAdminStaffTable();
+        renderAdminPremiseSummary();
 
         const paySel = document.getElementById('pay-staff');
         const prevPayVal = paySel.value;
@@ -1476,7 +1594,120 @@
       } finally { showLoader(false); }
     }
 
-    window.addEventListener('DOMContentLoaded', initApp);
+
+    function applyPayrollVisibility() {
+      const btnSlip = document.getElementById('btn-stab-slip');
+      const admPay = document.getElementById('admin-payroll-panel');
+      const admCol = document.getElementById('admin-staff-list-col');
+      if (btnSlip) btnSlip.classList.toggle('hidden', !STATE.enablePayroll);
+      if (admPay) admPay.classList.toggle('hidden', !STATE.enablePayroll);
+      if (admCol) admCol.className = (STATE.enablePayroll ? 'lg:col-span-7' : 'lg:col-span-12') + ' bg-white rounded-2xl p-5 border border-borderline overflow-x-auto';
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('rns_theme', isDark ? 'dark' : 'light');
+      document.getElementById('theme-icon').textContent = isDark ? 'light_mode' : 'dark_mode';
+    }
+
+    function initTheme() {
+      if (localStorage.getItem('rns_theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+        const ic = document.getElementById('theme-icon');
+        if (ic) ic.textContent = 'light_mode';
+      }
+    }
+
+    async function forceSyncHome() {
+      localStorage.removeItem('rns_init_cache_v3');
+      showLoader(true);
+      try {
+        const res = await apiGet('get_init_data');
+        if (res.success) {
+          localStorage.setItem('rns_init_cache_v3', JSON.stringify(res.data));
+          applyInitData(res.data);
+          showToast('Data disinkronkan! (' + (res.data.staff_directory || []).length + ' staff)');
+        }
+      } finally { showLoader(false); }
+    }
+
+    function renderHomeVideoSlide() {
+      const player = document.getElementById('home-video-player');
+      const titleEl = document.getElementById('home-video-title');
+      const counter = document.getElementById('video-slide-counter');
+      if (!STATE.videos.length) {
+        counter.textContent = '0 / 0';
+        titleEl.textContent = '';
+        return;
+      }
+      if (STATE.videoIdx >= STATE.videos.length) STATE.videoIdx = 0;
+      if (STATE.videoIdx < 0) STATE.videoIdx = STATE.videos.length - 1;
+      const v = STATE.videos[STATE.videoIdx];
+      counter.textContent = (STATE.videoIdx + 1) + ' / ' + STATE.videos.length;
+      titleEl.textContent = v.judul + ' (' + (v.sumber || 'Video') + ')';
+      player.innerHTML = `<iframe src="${v.embed_url}" class="w-full h-full border-0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    }
+
+    function nextVideoSlide() { STATE.videoIdx++; renderHomeVideoSlide(); }
+    function prevVideoSlide() { STATE.videoIdx--; renderHomeVideoSlide(); }
+
+    async function handleAdminSaveVideo(e) {
+      e.preventDefault();
+      showLoader(true);
+      try {
+        const res = await apiPost('admin_save_video', {
+          judul: document.getElementById('vid-judul').value,
+          url_asli: document.getElementById('vid-url').value
+        });
+        showToast(res.message || res.error, !res.success);
+        if (res.success) { e.target.reset(); await forceSyncHome(); }
+      } finally { showLoader(false); }
+    }
+
+    function isBirthdayMatch_(tglLahir) {
+      const s = String(tglLahir || '').trim();
+      if (!s) return { isToday: false, isThisMonth: false };
+      const parts = s.slice(0, 10).split('-');
+      if (parts.length !== 3) return { isToday: false, isThisMonth: false };
+      const now = new Date();
+      const m = Number(parts[1]), d = Number(parts[2]);
+      return { isToday: m === (now.getMonth() + 1) && d === now.getDate(), isThisMonth: m === (now.getMonth() + 1) };
+    }
+
+    function openBirthdayCard(nama, premis) {
+      document.getElementById('ecard-name').textContent = nama || 'Staff Rekan Niaga Sejiwa';
+      document.getElementById('ecard-premise').textContent = premis || 'Rekan Niaga Sejiwa';
+      document.getElementById('modal-birthday-ecard').classList.remove('hidden');
+    }
+
+    function renderAdminPremiseSummary() {
+      if (!STATE.adminData) return;
+      const { staff, premises, zones } = STATE.adminData;
+      const tbody = document.getElementById('admin-premis-summary-tbody');
+      const bdayBox = document.getElementById('admin-birthday-alerts');
+
+      const bdays = staff.filter((s) => isBirthdayMatch_(s.tanggal_lahir).isThisMonth);
+      bdayBox.innerHTML = bdays.map((s) => {
+        const prem = premises.find((p) => p.id_premis === s.id_premis);
+        return `<button type="button" onclick="openBirthdayCard('${s.nama_lengkap}','${prem ? prem.nama_premis : ''}')" class="px-2.5 py-1 rounded-full bg-cream-soft border border-secondary-gold text-[11px] font-bold text-secondary">Ultah: ${s.nama_lengkap} (e-Card)</button>`;
+      }).join('');
+
+      tbody.innerHTML = premises.map((p) => {
+        const z = zones.find((zn) => zn.id_zona === p.id_zona);
+        const members = staff.filter((s) => String(s.id_premis || '').trim() === String(p.id_premis || '').trim());
+        if (!members.length) return '';
+        return `
+          <tr>
+            <td class="p-2.5 font-bold text-primary">${p.nama_premis}</td>
+            <td class="p-2.5">${p.sub_kategori} • ${z ? z.kota : '-'}</td>
+            <td class="p-2.5 font-bold tabular-nums">${members.length} Orang</td>
+            <td class="p-2.5">${members.map((m) => m.nama_lengkap + ' (' + (m.jabatan || 'Staff') + ')').join(', ')}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="4" class="p-4 text-center text-on-muted">Belum ada karyawan terdaftar di premis manapun.</td></tr>';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => { initTheme(); initApp(); });
   </script>
 </body>
 </html>
